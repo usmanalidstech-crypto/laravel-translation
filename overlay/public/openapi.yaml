@@ -1,0 +1,465 @@
+openapi: 3.0.3
+info:
+  title: Laravel Translation Management Service API
+  description: |
+    A high-performance API for managing translations across multiple locales and contexts.
+    Features include CRUD operations, advanced filtering, JSON export, and token-based authentication.
+  version: 1.0.0
+  contact:
+    name: Translation API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api
+    description: Development server
+  - url: https://api.example.com/api
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Check if the API is running
+      security: []
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /keys:
+    get:
+      summary: List Translation Keys
+      description: Retrieve paginated list of translation keys with optional filtering
+      parameters:
+        - name: namespace
+          in: query
+          description: Filter by namespace
+          schema:
+            type: string
+            example: web
+        - name: key
+          in: query
+          description: Filter by key pattern (partial match)
+          schema:
+            type: string
+            example: welcome
+        - name: tag
+          in: query
+          description: Filter by tag name
+          schema:
+            type: string
+            example: mobile
+        - name: content
+          in: query
+          description: Filter by translation content (partial match)
+          schema:
+            type: string
+            example: hello
+        - name: locale
+          in: query
+          description: Filter by locale code
+          schema:
+            type: string
+            example: en
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+      responses:
+        '200':
+          description: List of translation keys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TranslationKey'
+                  links:
+                    $ref: '#/components/schemas/PaginationLinks'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      summary: Create Translation Key
+      description: Create a new translation key with values and tags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTranslationKeyRequest'
+      responses:
+        '201':
+          description: Translation key created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /keys/{id}:
+    get:
+      summary: Get Translation Key
+      description: Retrieve a specific translation key by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Translation key ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Translation key details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      summary: Update Translation Key
+      description: Update an existing translation key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Translation key ID
+          schema:
+            type: integer
+            example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTranslationKeyRequest'
+      responses:
+        '200':
+          description: Translation key updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranslationKey'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      summary: Delete Translation Key
+      description: Delete a translation key and all its values
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Translation key ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        '200':
+          description: Translation key deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deleted:
+                    type: boolean
+                    example: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /export:
+    get:
+      summary: Export Translations
+      description: Export translations as JSON for frontend applications
+      parameters:
+        - name: locale
+          in: query
+          description: Locale code to export
+          schema:
+            type: string
+            default: en
+            example: en
+        - name: namespace
+          in: query
+          description: Filter by namespace
+          schema:
+            type: string
+            example: web
+        - name: tags
+          in: query
+          description: Comma-separated list of tags to filter by
+          schema:
+            type: string
+            example: web,mobile
+      responses:
+        '200':
+          description: Translations exported successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    type: string
+                example:
+                  web:
+                    welcome: "Welcome!"
+                    hello: "Hello!"
+                  mobile:
+                    welcome: "Welcome!"
+        '304':
+          description: Not modified (ETag match)
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token-based authentication using HMAC-SHA256
+
+  schemas:
+    TranslationKey:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        namespace:
+          type: string
+          example: web
+        key:
+          type: string
+          example: welcome.message
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationValue'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TranslationValue:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        value:
+          type: string
+          example: "Welcome to our website!"
+        version:
+          type: integer
+          example: 1
+        locale:
+          $ref: '#/components/schemas/Locale'
+
+    Locale:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        code:
+          type: string
+          example: en
+        name:
+          type: string
+          example: English
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: web
+
+    CreateTranslationKeyRequest:
+      type: object
+      required:
+        - key
+      properties:
+        namespace:
+          type: string
+          maxLength: 64
+          example: web
+        key:
+          type: string
+          maxLength: 191
+          example: welcome.message
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationValueRequest'
+        tags:
+          type: array
+          items:
+            type: string
+          example: [web, mobile]
+
+    UpdateTranslationKeyRequest:
+      type: object
+      properties:
+        namespace:
+          type: string
+          maxLength: 64
+          example: web
+        key:
+          type: string
+          maxLength: 191
+          example: welcome.message
+        values:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranslationValueRequest'
+        tags:
+          type: array
+          items:
+            type: string
+          example: [web, mobile]
+
+    TranslationValueRequest:
+      type: object
+      required:
+        - locale
+        - value
+      properties:
+        locale:
+          type: string
+          maxLength: 10
+          example: en
+        value:
+          type: string
+          example: "Welcome to our website!"
+
+    PaginationLinks:
+      type: object
+      properties:
+        first:
+          type: string
+          example: "http://localhost:8080/api/keys?page=1"
+        last:
+          type: string
+          example: "http://localhost:8080/api/keys?page=10"
+        prev:
+          type: string
+          nullable: true
+          example: "http://localhost:8080/api/keys?page=1"
+        next:
+          type: string
+          nullable: true
+          example: "http://localhost:8080/api/keys?page=3"
+
+    PaginationMeta:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          example: 2
+        from:
+          type: integer
+          example: 51
+        last_page:
+          type: integer
+          example: 10
+        per_page:
+          type: integer
+          example: 50
+        to:
+          type: integer
+          example: 100
+        total:
+          type: integer
+          example: 500
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "The given data was invalid."
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+  responses:
+    Unauthorized:
+      description: Unauthorized - Invalid or missing token
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Unauthorized"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "No query results for model [App\\Models\\TranslationKey] 123"
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

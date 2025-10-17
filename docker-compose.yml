@@ -1,0 +1,55 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        LARAVEL_VERSION: ${LARAVEL_VERSION:-^12.0}
+    image: ${APP_IMAGE:-lta-app-slim:latest}
+    container_name: ${APP_CONTAINER_NAME:-lta-app}
+    depends_on:
+      - mysql
+      - redis
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT:-8080}:8000"
+
+  mysql:
+    image: mysql:${MYSQL_IMAGE_TAG:-8.3}
+    container_name: ${MYSQL_CONTAINER_NAME:-lta-mysql}
+    env_file:
+      - .env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-secret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-translations}
+    ports:
+      - "${MYSQL_HOST_PORT:-3307}:3306"
+    command: ["--default-authentication-plugin=mysql_native_password"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-secret}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:alpine
+    container_name: ${REDIS_CONTAINER_NAME:-lta-redis}
+    ports:
+      - "${REDIS_HOST_PORT:-6379}:6379"
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: ${PMA_CONTAINER_NAME:-lta-phpmyadmin}
+    depends_on:
+      - mysql
+    environment:
+      PMA_HOST: ${DB_HOST:-mysql}
+      PMA_PORT: ${DB_PORT:-3306}
+      UPLOAD_LIMIT: ${PMA_UPLOAD_LIMIT:-128M}
+    ports:
+      - "${PHPMYADMIN_PORT:-8081}:80"
+
+volumes:
+  mysql_data:
